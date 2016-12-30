@@ -56,7 +56,6 @@ func HtmlToText(s string) string {
 
 func (e *HTMLElement) InnerText() string {
 	return HtmlToText(e.InnerHTML)
-
 }
 
 func (e *HTMLElement) String() string {
@@ -79,7 +78,7 @@ func (e *HTMLElement) FormParams() url.Values {
 	return vals
 }
 
-func (e *HTMLElement) NewDoc() *Document {
+func (e *HTMLElement) Doc() *Document {
 	switch e.TagName {
 	case "form":
 		doc := e.Document.NewDoc(e.Attributes["action"])

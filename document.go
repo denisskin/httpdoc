@@ -2,14 +2,18 @@ package httpdoc
 
 import (
 	"bytes"
+	"compress/flate"
+	"compress/gzip"
 	"fmt"
 	"golang.org/x/text/encoding/htmlindex"
 	"golang.org/x/text/transform"
+	"io"
 	"io/ioutil"
 	"mime"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strconv"
 )
 
 type Document struct {
@@ -20,31 +24,24 @@ type Document struct {
 	Body     []byte
 }
 
-var DefaultHeaders = map[string]string{
-	"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.95 Safari/537.36",
-}
+var (
+	DefaultHeader = http.Header{
+		"Accept":          {"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"},
+		"Accept-Encoding": {"gzip, deflate"},
+		"Cache-Control":   {"max-age=0"},
+		"Connection":      {"keep-alive"},
+		"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.95 Safari/537.36"},
+	}
+)
 
 func NewDocument(url string) *Document {
-
 	jar, err := cookiejar.New(nil)
 	panicOnErr(err)
 
 	client := &http.Client{
 		Jar: jar,
 	}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	for name, value := range DefaultHeaders {
-		req.Header.Set(name, value)
-	}
-
-	return &Document{
-		Client:  client,
-		Request: req,
-	}
+	return newDocument(url, client)
 }
 
 func (d *Document) NewDoc(relURL string) *Document {
@@ -52,16 +49,23 @@ func (d *Document) NewDoc(relURL string) *Document {
 	panicOnErr(err)
 	u = d.Request.URL.ResolveReference(u)
 
-	req, err := http.NewRequest("GET", u.String(), nil)
+	doc := newDocument(u.String(), d.Client)
+	doc.Request.Header.Set("Referer", d.URL().String())
+	return doc
+}
+
+func newDocument(urlStr string, client *http.Client) *Document {
+	req, err := http.NewRequest("GET", urlStr, nil)
 	panicOnErr(err)
+	req.PostForm = url.Values{}
 
-	for name, value := range DefaultHeaders {
-		req.Header.Set(name, value)
+	for name, values := range DefaultHeader {
+		for _, value := range values {
+			req.Header.Add(name, value)
+		}
 	}
-	req.Header.Set("Referer", d.URL().String())
-
 	return &Document{
-		Client:  d.Client,
+		Client:  client,
 		Request: req,
 	}
 }
@@ -81,12 +85,15 @@ func (d *Document) Method() string {
 	return d.Request.Method
 }
 
-func (d *Document) QueryParams() url.Values {
-	return d.Request.URL.Query()
+func (d *Document) URL() *url.URL {
+	if resp := d.Response; resp != nil {
+		return resp.Request.URL
+	}
+	return d.Request.URL
 }
 
-func (d *Document) URL() *url.URL {
-	return d.Request.URL
+func (d *Document) QueryParams() url.Values {
+	return d.URL().Query()
 }
 
 func (d *Document) Param(name string) string {
@@ -108,7 +115,7 @@ func (d *Document) SetParams(vals url.Values) {
 
 func (d *Document) SetParam(name, val string) {
 	if d.Request.Method == "POST" {
-		d.SetPostFormParam(name, val)
+		d.SetPostParam(name, val)
 	} else {
 		d.SetQueryParam(name, val)
 	}
@@ -120,7 +127,7 @@ func (d *Document) SetQueryParam(name, val string) {
 	d.Request.URL.RawQuery = q.Encode()
 }
 
-func (d *Document) SetPostFormParam(name, val string) {
+func (d *Document) SetPostParam(name, val string) {
 	d.Request.Method = "POST"
 	d.Request.PostForm.Set(name, val)
 }
@@ -139,16 +146,55 @@ func (d *Document) Loaded() bool {
 	return d.Response != nil
 }
 
+func (d *Document) Load() {
+	err := d.load()
+	panicOnErr(err)
+}
+
 func (d *Document) load() (err error) {
 	if d.Loaded() {
 		return
 	}
+
+	// set request body
+	if len(d.Request.PostForm) > 0 {
+		reqBody := d.Request.PostForm.Encode()
+		d.Request.Method = "POST"
+		d.Request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		d.Request.Body = ioutil.NopCloser(bytes.NewBufferString(reqBody))
+		d.Request.ContentLength = int64(len(reqBody))
+	}
+	if d.Request.ContentLength > 0 {
+		d.Request.Header.Set("Content-Length", strconv.FormatInt(d.Request.ContentLength, 10))
+	}
+
 	if d.Response, err = d.Client.Do(d.Request); err != nil {
 		return
 	}
 	defer d.Response.Body.Close()
 
-	if d.rawBody, err = ioutil.ReadAll(d.Response.Body); err != nil {
+	// Check that the server actually sent compressed data
+	var reader io.ReadCloser
+	switch d.Response.Header.Get("Content-Encoding") {
+	// todo: "br" https://godoc.org/github.com/dsnet/compress/brotli
+	// todo: "compress"
+	// todo: "sdch"
+
+	case "gzip":
+		reader, err = gzip.NewReader(d.Response.Body)
+		defer reader.Close()
+
+	case "deflate":
+		reader = flate.NewReader(d.Response.Body)
+		defer reader.Close()
+
+	default:
+		reader = d.Response.Body
+	}
+	if err != nil {
+		return err
+	}
+	if d.rawBody, err = ioutil.ReadAll(reader); err != nil {
 		return
 	}
 	if charset := d.Charset(); charset != "utf-8" {
@@ -178,7 +224,7 @@ func (d *Document) ContentType() string {
 func (d *Document) Charset() string {
 	d.load()
 	sContType := d.Response.Header.Get("Content-Type")
-	if _, p, _ := mime.ParseMediaType(sContType); p != nil {
+	if _, p, _ := mime.ParseMediaType(sContType); p != nil && p["charset"] != "" {
 		return p["charset"]
 	}
 	return "utf-8"
@@ -189,6 +235,7 @@ func (d *Document) Content() string {
 	return string(d.Body)
 }
 
+//--------- html-document methods ---------------
 func (d *Document) Title() string {
 	if ee := d.GetElementsByTagName("title"); len(ee) > 0 {
 		return ee[0].InnerText()

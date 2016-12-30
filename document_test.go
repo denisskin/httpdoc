@@ -23,7 +23,7 @@ func TestSubmitForm(t *testing.T) {
 	assert.Equal(t, "/search", form.Attributes["action"])
 	assert.True(t, len(form.FormParams()) > 0)
 
-	doc := form.NewDoc()
+	doc := form.Doc()
 	doc.SetParam("q", "sha256")
 	doc.Submit()
 
