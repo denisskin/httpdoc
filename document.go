@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"regexp"
 	"strconv"
 )
 
@@ -233,6 +234,34 @@ func (d *Document) Charset() string {
 func (d *Document) Content() string {
 	d.load()
 	return string(d.Body)
+}
+
+func normRe(regExp interface{}) *regexp.Regexp {
+	switch v := regExp.(type) {
+	case *regexp.Regexp:
+		return v
+
+	case string:
+		return regexp.MustCompile(v)
+
+	default:
+		panic(fmt.Sprintf("Unknown req-exp format (%v)", regExp))
+	}
+}
+
+func (d *Document) Match(regExp interface{}) []string {
+	return normRe(regExp).FindStringSubmatch(d.Content())
+}
+
+func (d *Document) Submatch(regExp interface{}, submatchNum int) string {
+	if submatches := d.Match(regExp); len(submatches) > 0 {
+		return submatches[submatchNum]
+	}
+	return ""
+}
+
+func (d *Document) MatchAll(regExp interface{}) [][]string {
+	return normRe(regExp).FindAllStringSubmatch(d.Content(), -1)
 }
 
 //--------- html-document methods ---------------
