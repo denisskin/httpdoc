@@ -83,7 +83,7 @@ func (e *HTMLElement) Doc() *Document {
 	case "form":
 		doc := e.Document.NewDoc(e.Attributes["action"])
 		if method := e.Attributes["method"]; method != "" {
-			doc.Request.Method = method
+			doc.Request.Method = strings.ToUpper(method)
 		}
 		doc.SetParams(e.FormParams())
 
