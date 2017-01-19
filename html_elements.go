@@ -2,6 +2,14 @@ package httpdoc
 
 type HTMLElements []*HTMLElement
 
+func (ee HTMLElements) String() string {
+	s := "[\n"
+	for _, e := range ee {
+		s += "  " + e.String() + "\n"
+	}
+	return s + "]"
+}
+
 func (ee HTMLElements) Eq(num int) *HTMLElement {
 	if num < len(ee) {
 		return ee[num]

@@ -16,16 +16,16 @@ type HTMLElement struct {
 }
 
 var (
-	reTag      = regexp.MustCompile(`<[a-zA-Z0-9\-]+[^<>]*/?>`)
-	reInputs   = regexp.MustCompile(`<(input|textarea|select|button)\b([^<>]*)>`)
-	reTagAttrs = regexp.MustCompile(`\s([a-zA-Z0-9\-]+)=('[^'<>]*'|"[^"<>]*")`)
+	reTag      = regexp.MustCompile(`<[a-zA-Z0-9\-]+[^>]*>`)
+	reInputs   = regexp.MustCompile(`<(?i:input|textarea|select|button)\b([^>]*)>`)
+	reTagAttrs = regexp.MustCompile(`\s([a-zA-Z0-9\-]+)=('[^']*'|"[^"]*")`)
 )
 
 func getElementsByTagName(d *Document, name string) (ee HTMLElements) {
 	// todo: use html.NewTokenizer(bytes.NewBuffer(d.Body))
 
 	name = regexp.QuoteMeta(name)
-	re, err := regexp.Compile(`<(?i:` + name + `)\b([^<>]*)>([\s\S]*?)</(?i:` + name + `)>`)
+	re, err := regexp.Compile(`(?i:<` + name + `\b([^>]*)(?s:/>|>(.*?)</` + name + `>))`)
 	if err != nil {
 		panic(err)
 	}
@@ -34,7 +34,7 @@ func getElementsByTagName(d *Document, name string) (ee HTMLElements) {
 			Document:   d,
 			TagName:    name,
 			Attributes: parseTagAttrs(ss[1]),
-			InnerHTML:  ss[2],
+			InnerHTML:  strings.TrimSpace(ss[2]),
 		})
 	}
 	return
@@ -59,18 +59,17 @@ func (e *HTMLElement) InnerText() string {
 }
 
 func (e *HTMLElement) String() string {
-	sAttrs := ""
+	s := `<` + e.TagName
 	for k, v := range e.Attributes {
-		sAttrs += fmt.Sprintf(` %s="%s"`, k, html.EscapeString(v))
+		s += fmt.Sprintf(` %s="%s"`, k, html.EscapeString(v))
 	}
-	return fmt.Sprintf("<%s%s>\n%s\n</form>", e.TagName, sAttrs, e.InnerHTML)
+	return s + `>` + e.InnerHTML + `</` + e.TagName + `>`
 }
 
 func (e *HTMLElement) FormParams() url.Values {
 	vals := url.Values{}
 	for _, ss := range reInputs.FindAllStringSubmatch(e.InnerHTML, -1) {
-		//tagName:=ss[1]
-		attrs := parseTagAttrs(ss[2])
+		attrs := parseTagAttrs(ss[1])
 		if name, val := attrs["name"], attrs["value"]; name != "" {
 			vals.Add(name, val)
 		}
@@ -89,10 +88,10 @@ func (e *HTMLElement) Doc() *Document {
 
 		return doc
 
-	case "a", "link", "image", "iframe", "frame":
-		return e.Document.NewDoc(e.Attributes["src"])
+	case "a", "link":
+		return e.Document.NewDoc(e.Attributes["href"])
 
 	default:
-		return e.Document.NewDoc("")
+		return e.Document.NewDoc(e.Attributes["src"])
 	}
 }

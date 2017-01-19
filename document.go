@@ -114,12 +114,13 @@ func (d *Document) SetParams(vals url.Values) {
 	}
 }
 
-func (d *Document) SetParam(name, val string) {
+func (d *Document) SetParam(name, val string) *Document {
 	if d.Request.Method == "POST" {
 		d.SetPostParam(name, val)
 	} else {
 		d.SetQueryParam(name, val)
 	}
+	return d
 }
 
 func (d *Document) SetQueryParam(name, val string) {
@@ -282,4 +283,16 @@ func (d *Document) Forms() HTMLElements {
 
 func (d *Document) Links() HTMLElements {
 	return d.GetElementsByTagName("a")
+}
+
+func (d *Document) Frames() HTMLElements {
+	return append(d.GetElementsByTagName("iframe"), d.GetElementsByTagName("frame")...)
+}
+
+func (d *Document) Images() HTMLElements {
+	return d.GetElementsByTagName("img")
+}
+
+func (d *Document) Scripts() HTMLElements {
+	return d.GetElementsByTagName("script")
 }
