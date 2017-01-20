@@ -33,3 +33,18 @@ golang advanced http-client
         log.Println(m[0])
     }
 ```
+
+#### Google translate website
+``` golang
+    site, from, to := "https://golang.org/", "en", "ru"
+    
+    doc := httpdoc.NewDocument("http://translate.google.com/translate?hl=")
+    doc.SetParam("sl", from)
+    doc.SetParam("tl", to)
+    doc.SetParam("u", site)
+    
+    doc = doc.Frames().Eq(0).Doc()  // get document from first iframe
+    doc = doc.Links().Eq(0).Doc()   // get document from first link (A-tag)
+    
+    assert.Equal(t, doc.Title(), "Язык программирования Go")
+```
