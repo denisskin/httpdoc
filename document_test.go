@@ -14,6 +14,13 @@ func TestSimpleRequest(t *testing.T) {
 	assert.True(t, len(doc.Content()) > 0)
 }
 
+func TestCheckRedirect(t *testing.T) {
+	doc := NewDocument("http://facebook.com/")
+	doc.Load()
+
+	assert.Equal(t, "https://www.facebook.com/", doc.URL().String())
+}
+
 func TestSubmitForm(t *testing.T) {
 	form := NewDocument("https://golang.org/").
 		Forms().
@@ -31,9 +38,15 @@ func TestSubmitForm(t *testing.T) {
 	assert.Equal(t, "sha256 - The Go Programming Language", doc.Title())
 }
 
-func TestCheckRedirect(t *testing.T) {
-	doc := NewDocument("http://facebook.com/")
-	doc.Load()
+func TestGoogleTranslateWebSite(t *testing.T) {
+	site, from, to := "https://golang.org/", "en", "ru"
 
-	assert.Equal(t, "https://www.facebook.com/", doc.URL().String())
+	doc := NewDocument("http://translate.google.com/translate?hl=").
+		SetParam("sl", from).
+		SetParam("tl", to).
+		SetParam("u", site).
+		Frames().Eq(0).Doc(). // get document from first frame
+		Links().Eq(0).Doc()   // get document from first link (A-tag)
+
+	assert.Equal(t, doc.Title(), "Язык программирования Go")
 }
