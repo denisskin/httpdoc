@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 type Document struct {
@@ -230,6 +231,43 @@ func (d *Document) Charset() string {
 		return p["charset"]
 	}
 	return "utf-8"
+}
+
+func valuesToStr(vals map[string][]string) (res string) {
+	for name, ss := range vals {
+		for _, s := range ss {
+			res += "\n- " + name + ": " + s
+		}
+	}
+	return
+}
+
+func (d *Document) Trace() *Document {
+	cont := d.Content()
+	fmt.Printf(
+		"\n======== httpdoc.Request %s ========"+
+			"\nRequest URL: %s"+
+			"\nRequest Method: %s"+
+			"\nStatus Code: %s"+
+			"\nRemote Address: %s"+
+			"\nRequest Headers: %s"+
+			"\nQuery String Parameters: %s"+
+			"\nForm Data: %s"+
+			"\nResponse Headers: %s"+
+			"\nRESPONSE:\n%s"+
+			"\n",
+		time.Now(),
+		d.Request.URL,
+		d.Request.Method,
+		d.Response.Status,
+		d.Request.RemoteAddr,
+		valuesToStr(d.Request.Header),
+		valuesToStr(d.Request.URL.Query()),
+		valuesToStr(d.Request.PostForm),
+		valuesToStr(d.Response.Header),
+		cont,
+	)
+	return d
 }
 
 func (d *Document) Content() string {
