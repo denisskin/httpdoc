@@ -299,7 +299,11 @@ func (d *Document) Submatch(regExp interface{}, submatchNum int) string {
 	return ""
 }
 
-func (d *Document) MatchAll(regExp interface{}) [][]string {
+func (d *Document) MatchAll(regExp interface{}) []string {
+	return normRe(regExp).FindAllString(d.Content(), -1)
+}
+
+func (d *Document) SubmatchAll(regExp interface{}) [][]string {
 	return normRe(regExp).FindAllStringSubmatch(d.Content(), -1)
 }
 
