@@ -16,7 +16,7 @@ type HTMLElement struct {
 }
 
 var (
-	reTag      = regexp.MustCompile(`<[a-zA-Z0-9\-]+[^>]*>`)
+	reTag      = regexp.MustCompile(`</?[a-zA-Z0-9\-]+[^>]*>`)
 	reInputs   = regexp.MustCompile(`<(?i:input|textarea|select|button)\b([^>]*)>`)
 	reTagAttrs = regexp.MustCompile(`\s([a-zA-Z0-9\-]+)=('[^']*'|"[^"]*")`)
 )
@@ -51,7 +51,7 @@ func parseTagAttrs(s string) map[string]string {
 
 func HtmlToText(s string) string {
 	s = reTag.ReplaceAllString(s, "")
-	return html.UnescapeString(s)
+	return strings.TrimSpace(html.UnescapeString(s))
 }
 
 func (e *HTMLElement) InnerText() string {
