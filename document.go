@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"golang.org/x/text/encoding/htmlindex"
 	"golang.org/x/text/transform"
@@ -305,6 +306,10 @@ func (d *Document) MatchAll(regExp interface{}) []string {
 
 func (d *Document) SubmatchAll(regExp interface{}) [][]string {
 	return normRe(regExp).FindAllStringSubmatch(d.Content(), -1)
+}
+
+func (d *Document) GetJSON(v interface{}) error {
+	return json.Unmarshal([]byte(d.Content()), v)
 }
 
 //--------- html-document methods ---------------
