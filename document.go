@@ -136,6 +136,19 @@ func (d *Document) SetPostParam(name, val string) {
 	d.Request.PostForm.Set(name, val)
 }
 
+func (d *Document) SetPostBody(postBody []byte) {
+	d.Request.Method = "POST"
+	d.Request.Body = ioutil.NopCloser(bytes.NewBuffer(postBody))
+}
+
+func (d *Document) SetPostJSON(v interface{}) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	d.SetPostBody(data)
+}
+
 //func (d *Document) SetCookie(val string) {
 //	c := &http.Cookie{}
 //	d.Client.Jar.SetCookies(d.URL(), []*http.Cookie{c})
