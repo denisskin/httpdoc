@@ -6,8 +6,6 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/text/encoding/htmlindex"
-	"golang.org/x/text/transform"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -17,6 +15,9 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+
+	"golang.org/x/text/encoding/htmlindex"
+	"golang.org/x/text/transform"
 )
 
 type Document struct {
@@ -136,9 +137,17 @@ func (d *Document) SetPostParam(name, val string) {
 	d.Request.PostForm.Set(name, val)
 }
 
-func (d *Document) SetPostBody(postBody []byte) {
+func (d *Document) SetPostParams(vals url.Values) {
 	d.Request.Method = "POST"
-	d.Request.Body = ioutil.NopCloser(bytes.NewBuffer(postBody))
+	d.Request.PostForm = vals
+}
+
+func (d *Document) SetPostBody(data []byte) {
+	d.Request.Method = "POST"
+	d.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	if d.Request.Header.Get("Content-Type") == "" {
+		d.Request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
 }
 
 func (d *Document) SetPostJSON(v interface{}) {
@@ -146,6 +155,7 @@ func (d *Document) SetPostJSON(v interface{}) {
 	if err != nil {
 		panic(err)
 	}
+	d.Request.Header.Set("Content-Type", "application/json")
 	d.SetPostBody(data)
 }
 
@@ -259,17 +269,18 @@ func valuesToStr(vals map[string][]string) (res string) {
 func (d *Document) Trace() *Document {
 	cont := d.Content()
 	fmt.Printf(
-		"\n======== httpdoc.Request %s ========"+
-			"\nRequest URL: %s"+
-			"\nRequest Method: %s"+
-			"\nStatus Code: %s"+
-			"\nRemote Address: %s"+
-			"\nRequest Headers: %s"+
-			"\nQuery String Parameters: %s"+
-			"\nForm Data: %s"+
-			"\nResponse Headers: %s"+
-			"\nRESPONSE:\n%s"+
-			"\n",
+		`======== httpdoc.Request %s ========
+Request URL: %s
+Request Method: %s
+Status Code: %s
+Remote Address: %s
+Request Headers: %s
+Query String Parameters: %s
+Form Data: %s
+Response Headers: %s
+RESPONSE:
+%s
+`,
 		time.Now(),
 		d.Request.URL,
 		d.Request.Method,
@@ -322,6 +333,9 @@ func (d *Document) SubmatchAll(regExp interface{}) [][]string {
 }
 
 func (d *Document) GetJSON(v interface{}) error {
+	if err := d.load(); err != nil {
+		return err
+	}
 	return json.Unmarshal([]byte(d.Content()), v)
 }
 
