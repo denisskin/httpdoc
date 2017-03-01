@@ -28,24 +28,30 @@ type Document struct {
 	Body     []byte
 }
 
-var (
-	DefaultHeader = http.Header{
-		"Accept":          {"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"},
-		"Accept-Encoding": {"gzip, deflate"},
-		"Cache-Control":   {"max-age=0"},
-		"Connection":      {"keep-alive"},
-		"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.95 Safari/537.36"},
-	}
-)
+var DefaultHeader = http.Header{
+	"Accept":          {"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"},
+	"Accept-Encoding": {"gzip, deflate"},
+	"Cache-Control":   {"max-age=0"},
+	"Connection":      {"keep-alive"},
+	"User-Agent":      {"Mozilla/5.0 (Macintosh) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36"},
+}
 
-func NewDocument(url string) *Document {
+var DefaultClient *http.Client
+
+func init() {
 	jar, err := cookiejar.New(nil)
 	panicOnErr(err)
-
-	client := &http.Client{
+	DefaultClient = &http.Client{
 		Jar: jar,
+		Transport: &http.Transport{
+			MaxIdleConns:        0,
+			MaxIdleConnsPerHost: 0,
+		},
 	}
-	return newDocument(url, client)
+}
+
+func NewDocument(url string) *Document {
+	return newDocument(url, DefaultClient)
 }
 
 func (d *Document) NewDoc(relURL string) *Document {
