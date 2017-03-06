@@ -171,7 +171,7 @@ func (d *Document) SetPostJSON(v interface{}) {
 //}
 
 func (d *Document) Submit() error {
-	return d.load()
+	return d.Load()
 }
 
 //---------- response method --------------
@@ -179,12 +179,7 @@ func (d *Document) Loaded() bool {
 	return d.Response != nil
 }
 
-func (d *Document) Load() {
-	err := d.load()
-	panicOnErr(err)
-}
-
-func (d *Document) load() (err error) {
+func (d *Document) Load() (err error) {
 	if d.Loaded() {
 		return
 	}
@@ -248,14 +243,14 @@ func iconv(buf []byte, charset string) ([]byte, error) {
 }
 
 func (d *Document) ContentType() string {
-	d.load()
+	panicOnErr(d.Load())
 	sContType := d.Response.Header.Get("Content-Type")
 	s, _, _ := mime.ParseMediaType(sContType)
 	return s
 }
 
 func (d *Document) Charset() string {
-	d.load()
+	panicOnErr(d.Load())
 	sContType := d.Response.Header.Get("Content-Type")
 	if _, p, _ := mime.ParseMediaType(sContType); p != nil && p["charset"] != "" {
 		return p["charset"]
@@ -302,7 +297,7 @@ RESPONSE:
 }
 
 func (d *Document) Content() string {
-	d.load()
+	panicOnErr(d.Load())
 	return string(d.Body)
 }
 
@@ -339,7 +334,7 @@ func (d *Document) SubmatchAll(regExp interface{}) [][]string {
 }
 
 func (d *Document) GetJSON(v interface{}) error {
-	if err := d.load(); err != nil {
+	if err := d.Load(); err != nil {
 		return err
 	}
 	return json.Unmarshal([]byte(d.Content()), v)
