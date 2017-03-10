@@ -7,7 +7,9 @@ import (
 
 func TestSimpleRequest(t *testing.T) {
 	doc := NewDocument("https://golang.org/")
+	err := doc.Load()
 
+	assert.NoError(t, err)
 	assert.Equal(t, "text/html", doc.ContentType())
 	assert.Equal(t, "utf-8", doc.Charset())
 	assert.Equal(t, "The Go Programming Language", doc.Title())
@@ -16,8 +18,9 @@ func TestSimpleRequest(t *testing.T) {
 
 func TestCheckRedirect(t *testing.T) {
 	doc := NewDocument("http://facebook.com/")
-	doc.Load()
+	err := doc.Load()
 
+	assert.NoError(t, err)
 	assert.Equal(t, "https://www.facebook.com/", doc.URL().String())
 }
 
