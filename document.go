@@ -333,6 +333,13 @@ func (d *Document) SubmatchAll(regExp interface{}) [][]string {
 	return normRe(regExp).FindAllStringSubmatch(d.Content(), -1)
 }
 
+func (d *Document) AllSubmatches(regExp interface{}, submatchNum int) (submatches []string) {
+	for _, ss := range d.SubmatchAll(regExp) {
+		submatches = append(submatches, ss[submatchNum])
+	}
+	return
+}
+
 func (d *Document) GetJSON(v interface{}) error {
 	if err := d.Load(); err != nil {
 		return err
