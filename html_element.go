@@ -2,10 +2,11 @@ package httpdoc
 
 import (
 	"fmt"
-	"golang.org/x/net/html"
 	"net/url"
 	"regexp"
 	"strings"
+
+	"golang.org/x/net/html"
 )
 
 type HTMLElement struct {
@@ -17,6 +18,9 @@ type HTMLElement struct {
 
 var (
 	reTag      = regexp.MustCompile(`</?[a-zA-Z0-9\-]+[^>]*>`)
+	reBr       = regexp.MustCompile(`<(?i:br|p)[^<>]*/?>`)
+	reLi       = regexp.MustCompile(`<(?i:li)[^<>]*>`)
+	reNewLine  = regexp.MustCompile(`(?s:\n+)`)
 	reInputs   = regexp.MustCompile(`<(?i:input|textarea|select|button)\b([^>]*)>`)
 	reTagAttrs = regexp.MustCompile(`\s([a-zA-Z0-9\-]+)=('[^']*'|"[^"]*")`)
 )
@@ -50,8 +54,12 @@ func parseTagAttrs(s string) map[string]string {
 }
 
 func HtmlToText(s string) string {
+	s = reBr.ReplaceAllString(s, "\n")
+	s = reLi.ReplaceAllString(s, "\n- ")
 	s = reTag.ReplaceAllString(s, "")
-	return strings.TrimSpace(html.UnescapeString(s))
+	s = reNewLine.ReplaceAllString(s, "\n")
+	s = strings.TrimSpace(html.UnescapeString(s))
+	return s
 }
 
 func (e *HTMLElement) InnerText() string {
