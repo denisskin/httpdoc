@@ -15,6 +15,8 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+	"mime/multipart"
+	"os"
 
 	"golang.org/x/text/encoding/htmlindex"
 	"golang.org/x/text/transform"
@@ -26,6 +28,8 @@ type Document struct {
 	Response *http.Response
 	rawBody  []byte
 	Body     []byte
+
+	multipartWriter *multipart.Writer
 }
 
 var DefaultHeader = http.Header{
@@ -125,7 +129,7 @@ func (d *Document) SetParams(vals url.Values) {
 
 func (d *Document) SetParam(name, val string) *Document {
 	if d.Request.Method == "POST" {
-		d.SetPostParam(name, val)
+		d.PostParam(name, val)
 	} else {
 		d.SetQueryParam(name, val)
 	}
@@ -138,17 +142,17 @@ func (d *Document) SetQueryParam(name, val string) {
 	d.Request.URL.RawQuery = q.Encode()
 }
 
-func (d *Document) SetPostParam(name, val string) {
+func (d *Document) PostParam(name, val string) {
 	d.Request.Method = "POST"
 	d.Request.PostForm.Set(name, val)
 }
 
-func (d *Document) SetPostParams(vals url.Values) {
+func (d *Document) PostParams(vals url.Values) {
 	d.Request.Method = "POST"
 	d.Request.PostForm = vals
 }
 
-func (d *Document) SetPostBody(data []byte) {
+func (d *Document) PostData(data []byte) {
 	d.Request.Method = "POST"
 	d.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 	if d.Request.Header.Get("Content-Type") == "" {
@@ -156,13 +160,51 @@ func (d *Document) SetPostBody(data []byte) {
 	}
 }
 
-func (d *Document) SetPostJSON(v interface{}) {
+func (d *Document) PostJSON(v interface{}) {
 	data, err := json.Marshal(v)
 	if err != nil {
 		panic(err)
 	}
 	d.Request.Header.Set("Content-Type", "application/json")
-	d.SetPostBody(data)
+	d.PostData(data)
+}
+
+func (d *Document) IsMultipartRequest() bool {
+	return d.multipartWriter != nil
+}
+
+func (d *Document) setMultipartRequest() {
+	if d.multipartWriter == nil {
+		buf := bytes.NewBuffer(nil)
+		d.Request.Method = "POST"
+		d.multipartWriter = multipart.NewWriter(buf)
+		d.Request.Header.Set("Content-Type", d.multipartWriter.FormDataContentType())
+		d.Request.Body = ioutil.NopCloser(buf)
+	}
+}
+
+func (d *Document) PostMultipartParam(name string, data io.Reader) error {
+	d.setMultipartRequest()
+	if w, err := d.multipartWriter.CreateFormFile(name, name); err != nil {
+		return err
+	} else if _, err := io.Copy(w, data); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *Document) PostMultipartParams(vals url.Values) {
+	d.setMultipartRequest()
+	d.PostParams(vals)
+}
+
+func (d *Document) PostFile(name, filePath string) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return d.PostMultipartParam(name, file)
 }
 
 //func (d *Document) SetCookie(val string) {
@@ -179,23 +221,41 @@ func (d *Document) Loaded() bool {
 	return d.Response != nil
 }
 
-func (d *Document) Load() (err error) {
+func (d *Document) Load() error {
 	if d.Loaded() {
-		return
+		return nil
 	}
+	if d.multipartWriter != nil {
+		for name, values := range d.Request.PostForm {
+			for _, val := range values {
+				d.multipartWriter.WriteField(name, val)
+			}
+		}
+		d.multipartWriter.Close()
 
-	// set request body
-	if len(d.Request.PostForm) > 0 {
-		reqBody := d.Request.PostForm.Encode()
+	} else if len(d.Request.PostForm) > 0 {
+		// set request body
+		buf := bytes.NewBufferString(d.Request.PostForm.Encode())
 		d.Request.Method = "POST"
 		d.Request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		d.Request.Body = ioutil.NopCloser(bytes.NewBufferString(reqBody))
-		d.Request.ContentLength = int64(len(reqBody))
+		d.Request.Body = ioutil.NopCloser(buf)
+		d.Request.ContentLength = int64(buf.Len())
 	}
 	if d.Request.ContentLength > 0 {
 		d.Request.Header.Set("Content-Length", strconv.FormatInt(d.Request.ContentLength, 10))
 	}
+	if err := d.doRequest(); err != nil {
+		return err
+	}
+	if charset := d.Charset(); charset != "utf-8" {
+		d.Body, _ = iconv(d.rawBody, charset)
+	} else {
+		d.Body = d.rawBody
+	}
+	return nil
+}
 
+func (d *Document) doRequest() (err error) {
 	if d.Response, err = d.Client.Do(d.Request); err != nil {
 		return
 	}
@@ -224,11 +284,6 @@ func (d *Document) Load() (err error) {
 	}
 	if d.rawBody, err = ioutil.ReadAll(reader); err != nil {
 		return
-	}
-	if charset := d.Charset(); charset != "utf-8" {
-		d.Body, _ = iconv(d.rawBody, charset)
-	} else {
-		d.Body = d.rawBody
 	}
 	return
 }
