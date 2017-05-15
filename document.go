@@ -9,14 +9,16 @@ import (
 	"io"
 	"io/ioutil"
 	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
+	"net/textproto"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
-	"mime/multipart"
-	"os"
 
 	"golang.org/x/text/encoding/htmlindex"
 	"golang.org/x/text/transform"
@@ -181,6 +183,28 @@ func (d *Document) setMultipartRequest() {
 		d.Request.Header.Set("Content-Type", d.multipartWriter.FormDataContentType())
 		d.Request.Body = ioutil.NopCloser(buf)
 	}
+}
+
+var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
+
+func escapeQuotes(s string) string {
+	return quoteEscaper.Replace(s)
+}
+
+func (d *Document) PostMultipartContent(name, contentType string, data io.Reader) error {
+	d.setMultipartRequest()
+
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, escapeQuotes(name), escapeQuotes(name)))
+	if contentType != "" {
+		h.Set("Content-Type", contentType)
+	}
+	if w, err := d.multipartWriter.CreatePart(h); err != nil {
+		return err
+	} else if _, err := io.Copy(w, data); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (d *Document) PostMultipartParam(name string, data io.Reader) error {
