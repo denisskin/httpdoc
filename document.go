@@ -39,7 +39,7 @@ var DefaultHeader = http.Header{
 	"Accept-Encoding": {"gzip, deflate"},
 	"Cache-Control":   {"max-age=0"},
 	"Connection":      {"keep-alive"},
-	"User-Agent":      {"Mozilla/5.0 (Macintosh) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36"},
+	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"},
 }
 
 var DefaultClient *http.Client
@@ -325,7 +325,7 @@ func (d *Document) ContentType() string {
 	panicOnErr(d.Load())
 	sContType := d.Response.Header.Get("Content-Type")
 	s, _, _ := mime.ParseMediaType(sContType)
-	return s
+	return strings.ToLower(s)
 }
 
 func (d *Document) Charset() string {
