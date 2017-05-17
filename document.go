@@ -48,7 +48,8 @@ func init() {
 	jar, err := cookiejar.New(nil)
 	panicOnErr(err)
 	DefaultClient = &http.Client{
-		Jar: jar,
+		Jar:     jar,
+		Timeout: 2 * time.Minute,
 		Transport: &http.Transport{
 			MaxIdleConns:        0,
 			MaxIdleConnsPerHost: 0,
@@ -131,7 +132,7 @@ func (d *Document) SetParams(vals url.Values) {
 
 func (d *Document) SetParam(name, val string) *Document {
 	if d.Request.Method == "POST" {
-		d.PostParam(name, val)
+		d.SetPOSTParam(name, val)
 	} else {
 		d.SetQueryParam(name, val)
 	}
@@ -144,17 +145,21 @@ func (d *Document) SetQueryParam(name, val string) {
 	d.Request.URL.RawQuery = q.Encode()
 }
 
-func (d *Document) PostParam(name, val string) {
+func (d *Document) SetGETParam(name, val string) {
+	d.SetQueryParam(name, val)
+}
+
+func (d *Document) SetPOSTParam(name, val string) {
 	d.Request.Method = "POST"
 	d.Request.PostForm.Set(name, val)
 }
 
-func (d *Document) PostParams(vals url.Values) {
+func (d *Document) SetPOSTParams(vals url.Values) {
 	d.Request.Method = "POST"
 	d.Request.PostForm = vals
 }
 
-func (d *Document) PostData(data []byte) {
+func (d *Document) SetPOSTData(data []byte) {
 	d.Request.Method = "POST"
 	d.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 	if d.Request.Header.Get("Content-Type") == "" {
@@ -162,13 +167,13 @@ func (d *Document) PostData(data []byte) {
 	}
 }
 
-func (d *Document) PostJSON(v interface{}) {
+func (d *Document) SetJSON(v interface{}) {
 	data, err := json.Marshal(v)
 	if err != nil {
 		panic(err)
 	}
 	d.Request.Header.Set("Content-Type", "application/json")
-	d.PostData(data)
+	d.SetPOSTData(data)
 }
 
 func (d *Document) IsMultipartRequest() bool {
@@ -191,7 +196,7 @@ func escapeQuotes(s string) string {
 	return quoteEscaper.Replace(s)
 }
 
-func (d *Document) PostMultipartContent(name, contentType string, data io.Reader) error {
+func (d *Document) SetMultipartContent(name string, data io.Reader, contentType string) error {
 	d.setMultipartRequest()
 
 	h := make(textproto.MIMEHeader)
@@ -207,34 +212,20 @@ func (d *Document) PostMultipartContent(name, contentType string, data io.Reader
 	return nil
 }
 
-func (d *Document) PostMultipartParam(name string, data io.Reader) error {
+func (d *Document) SetMultipartParams(vals url.Values) {
 	d.setMultipartRequest()
-	if w, err := d.multipartWriter.CreateFormFile(name, name); err != nil {
-		return err
-	} else if _, err := io.Copy(w, data); err != nil {
-		return err
-	}
-	return nil
+	d.SetPOSTParams(vals)
 }
 
-func (d *Document) PostMultipartParams(vals url.Values) {
-	d.setMultipartRequest()
-	d.PostParams(vals)
-}
-
-func (d *Document) PostFile(name, filePath string) error {
+func (d *Document) SetFile(name, filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
-	return d.PostMultipartParam(name, file)
+	// TODO: detect contentType by file extension
+	return d.SetMultipartContent(name, file, "application/octet-stream")
 }
-
-//func (d *Document) SetCookie(val string) {
-//	c := &http.Cookie{}
-//	d.Client.Jar.SetCookies(d.URL(), []*http.Cookie{c})
-//}
 
 func (d *Document) Submit() error {
 	return d.Load()
@@ -272,7 +263,7 @@ func (d *Document) Load() error {
 		return err
 	}
 	if charset := d.Charset(); charset != "utf-8" {
-		d.Body, _ = iconv(d.rawBody, charset)
+		d.Body, _ = Iconv(d.rawBody, charset)
 	} else {
 		d.Body = d.rawBody
 	}
@@ -312,7 +303,7 @@ func (d *Document) doRequest() (err error) {
 	return
 }
 
-func iconv(buf []byte, charset string) ([]byte, error) {
+func Iconv(buf []byte, charset string) ([]byte, error) {
 	enc, err := htmlindex.Get(charset)
 	if err != nil {
 		return nil, err
