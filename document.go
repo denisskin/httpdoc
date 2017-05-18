@@ -319,6 +319,10 @@ func (d *Document) ContentType() string {
 	return strings.ToLower(s)
 }
 
+func (d *Document) IsImage() bool {
+	return strings.HasPrefix(d.ContentType(), "image")
+}
+
 func (d *Document) Charset() string {
 	panicOnErr(d.Load())
 	sContType := d.Response.Header.Get("Content-Type")
