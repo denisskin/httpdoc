@@ -448,3 +448,20 @@ func (d *Document) Images() HTMLElements {
 func (d *Document) Scripts() HTMLElements {
 	return d.GetElementsByTagName("script")
 }
+
+func (d *Document) MetaTags() HTMLElements {
+	return d.GetElementsByTagName("meta")
+}
+
+func (d *Document) MetaIcon() string {
+	linkTags := d.GetElementsByTagName("link").FilterByAttr("href")
+	for _, relVal := range []string{"icon", "shortcut icon", "apple-touch-icon"} {
+		if tags := linkTags.FilterByAttrValue("rel", relVal); len(tags) > 0 {
+			if tags := tags.FilterByAttrValue("type", "image/ico"); len(tags) > 0 {
+				return tags[0].Attributes["href"]
+			}
+			return tags[0].Attributes["href"]
+		}
+	}
+	return ""
+}
