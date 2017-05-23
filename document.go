@@ -469,3 +469,16 @@ func (d *Document) MetaIcon() string {
 	}
 	return ""
 }
+
+func (d *Document) MetaImage() string {
+	if tags := d.GetElementsByTagName("link").FilterByAttrValue("rel", "image").FilterByAttr("href"); len(tags) > 0 {
+		return tags[0].Attributes["href"]
+	}
+	if tags := d.GetElementsByTagName("link").FilterByAttrValue("rel", "image_src").FilterByAttr("href"); len(tags) > 0 {
+		return tags[0].Attributes["href"]
+	}
+	if tags := d.GetElementsByTagName("meta").FilterByAttrValue("property", "og:image").FilterByAttr("content"); len(tags) > 0 {
+		return tags[0].Attributes["content"]
+	}
+	return ""
+}
