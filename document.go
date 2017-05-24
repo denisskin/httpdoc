@@ -433,30 +433,37 @@ func (d *Document) GetElementsByTagName(name string) HTMLElements {
 	return getElementsByTagName(d, name)
 }
 
+// Forms gets collections of html-tags <form>
 func (d *Document) Forms() HTMLElements {
 	return d.GetElementsByTagName("form")
 }
 
+// Links gets collections of html-tags <a>
 func (d *Document) Links() HTMLElements {
 	return d.GetElementsByTagName("a")
 }
 
+// Frames gets collections of html-tags <frame>, <iframe>
 func (d *Document) Frames() HTMLElements {
 	return append(d.GetElementsByTagName("iframe"), d.GetElementsByTagName("frame")...)
 }
 
+// Images gets collections of html-tags <img>
 func (d *Document) Images() HTMLElements {
 	return d.GetElementsByTagName("img")
 }
 
+// Scripts gets collections of html-tags <script>
 func (d *Document) Scripts() HTMLElements {
 	return d.GetElementsByTagName("script")
 }
 
+// MetaTags gets collections of html-tags <meta>
 func (d *Document) MetaTags() HTMLElements {
 	return d.GetElementsByTagName("meta")
 }
 
+// MetaIcon gets image-url from meta-info for html-document
 func (d *Document) MetaIcon() string {
 	linkTags := d.GetElementsByTagName("link").FilterByAttr("href")
 	for _, relVal := range []string{"icon", "shortcut icon", "apple-touch-icon"} {
@@ -470,6 +477,7 @@ func (d *Document) MetaIcon() string {
 	return ""
 }
 
+// MetaImage gets image-url from meta-info for html-document
 func (d *Document) MetaImage() string {
 	if tags := d.GetElementsByTagName("link").FilterByAttrValue("rel", "image").FilterByAttr("href"); len(tags) > 0 {
 		return tags[0].Attributes["href"]
