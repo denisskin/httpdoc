@@ -49,11 +49,7 @@ func init() {
 	panicOnErr(err)
 	DefaultClient = &http.Client{
 		Jar:     jar,
-		Timeout: 2 * time.Minute,
-		Transport: &http.Transport{
-			MaxIdleConns:        0,
-			MaxIdleConnsPerHost: 0,
-		},
+		Timeout: 60 * time.Second,
 	}
 }
 
