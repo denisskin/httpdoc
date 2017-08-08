@@ -1,8 +1,9 @@
 package httpdoc
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSimpleRequest(t *testing.T) {
