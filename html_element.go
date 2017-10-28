@@ -63,6 +63,9 @@ func HtmlToText(s string) string {
 }
 
 func (e *HTMLElement) InnerText() string {
+	if e == nil {
+		return ""
+	}
 	return HtmlToText(e.InnerHTML)
 }
 

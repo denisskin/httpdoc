@@ -20,10 +20,7 @@ func (ee HTMLElements) Eq(num int) *HTMLElement {
 }
 
 func (ee HTMLElements) First() *HTMLElement {
-	if len(ee) > 0 {
-		return ee[0]
-	}
-	return nil
+	return ee.Eq(0)
 }
 
 func (ee HTMLElements) Last() *HTMLElement {
