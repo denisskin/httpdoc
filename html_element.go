@@ -33,7 +33,7 @@ func getElementsByTagName(d *Document, name string) (ee HTMLElements) {
 	if err != nil {
 		panic(err)
 	}
-	for _, ss := range re.FindAllStringSubmatch(d.Content(), -1) {
+	for _, ss := range re.FindAllStringSubmatch(d.ContentStr(), -1) {
 		ee = append(ee, &HTMLElement{
 			Document:   d,
 			TagName:    name,

@@ -338,7 +338,7 @@ func valuesToStr(vals map[string][]string) (res string) {
 }
 
 func (d *Document) Trace() *Document {
-	cont := d.Content()
+	cont := d.ContentStr()
 	fmt.Printf(
 		`======== httpdoc.Request %s ========
 Request URL: %s
@@ -366,9 +366,13 @@ RESPONSE:
 	return d
 }
 
-func (d *Document) Content() string {
+func (d *Document) ContentStr() string {
+	return string(d.Content())
+}
+
+func (d *Document) Content() []byte {
 	panicOnErr(d.Load())
-	return string(d.Body)
+	return d.Body
 }
 
 func normRe(regExp interface{}) *regexp.Regexp {
@@ -385,7 +389,7 @@ func normRe(regExp interface{}) *regexp.Regexp {
 }
 
 func (d *Document) Match(regExp interface{}) []string {
-	return normRe(regExp).FindStringSubmatch(d.Content())
+	return normRe(regExp).FindStringSubmatch(d.ContentStr())
 }
 
 func (d *Document) Submatch(regExp interface{}, submatchNum int) string {
@@ -396,11 +400,11 @@ func (d *Document) Submatch(regExp interface{}, submatchNum int) string {
 }
 
 func (d *Document) MatchAll(regExp interface{}) []string {
-	return normRe(regExp).FindAllString(d.Content(), -1)
+	return normRe(regExp).FindAllString(d.ContentStr(), -1)
 }
 
 func (d *Document) SubmatchAll(regExp interface{}) [][]string {
-	return normRe(regExp).FindAllStringSubmatch(d.Content(), -1)
+	return normRe(regExp).FindAllStringSubmatch(d.ContentStr(), -1)
 }
 
 func (d *Document) AllSubmatches(regExp interface{}, submatchNum int) (submatches []string) {
@@ -414,7 +418,7 @@ func (d *Document) GetJSON(v interface{}) error {
 	if err := d.Load(); err != nil {
 		return err
 	}
-	return json.Unmarshal([]byte(d.Content()), v)
+	return json.Unmarshal(d.Content(), v)
 }
 
 //--------- html-document methods ---------------
@@ -475,14 +479,14 @@ func (d *Document) MetaIcon() string {
 
 // MetaImage gets image-url from meta-info for html-document
 func (d *Document) MetaImage() string {
-	if tags := d.GetElementsByTagName("link").FilterByAttrValue("rel", "image").FilterByAttr("href"); len(tags) > 0 {
-		return tags[0].Attributes["href"]
+	if tag := d.GetElementsByTagName("link").FilterByAttrValue("rel", "image").FilterByAttr("href").First(); tag != nil {
+		return tag.Attributes["href"]
 	}
-	if tags := d.GetElementsByTagName("link").FilterByAttrValue("rel", "image_src").FilterByAttr("href"); len(tags) > 0 {
-		return tags[0].Attributes["href"]
+	if tag := d.GetElementsByTagName("link").FilterByAttrValue("rel", "image_src").FilterByAttr("href").First(); tag != nil {
+		return tag.Attributes["href"]
 	}
-	if tags := d.GetElementsByTagName("meta").FilterByAttrValue("property", "og:image").FilterByAttr("content"); len(tags) > 0 {
-		return tags[0].Attributes["content"]
+	if tag := d.GetElementsByTagName("meta").FilterByAttrValue("property", "og:image").FilterByAttr("content").First(); tag != nil {
+		return tag.Attributes["content"]
 	}
 	return ""
 }
