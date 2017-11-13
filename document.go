@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -221,6 +222,11 @@ func (d *Document) SetFile(name, filePath string) error {
 	defer file.Close()
 	// TODO: detect contentType by file extension
 	return d.SetMultipartContent(name, file, "application/octet-stream")
+}
+
+func (d *Document) SetBasicAuthorization(username, password string) {
+	auth := base64.RawStdEncoding.EncodeToString([]byte(username + ":" + password))
+	d.Request.Header.Add("Authorization", "Basic "+auth)
 }
 
 func (d *Document) Submit() error {
