@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -156,12 +155,14 @@ func (d *Document) SetPOSTParams(vals url.Values) {
 	d.Request.PostForm = vals
 }
 
-func (d *Document) SetPOSTData(data []byte) {
-	d.Request.Method = "POST"
-	d.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-	if d.Request.Header.Get("Content-Type") == "" {
-		d.Request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+func (d *Document) SetPOSTData(data []byte, contentType string) {
+	if contentType == "" {
+		contentType = "application/x-www-form-urlencoded"
 	}
+	d.Request.Method = "POST"
+	d.Request.Header.Set("Content-Type", contentType)
+	d.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	d.Request.ContentLength = int64(len(data))
 }
 
 func (d *Document) SetJSON(v interface{}) {
@@ -169,8 +170,7 @@ func (d *Document) SetJSON(v interface{}) {
 	if err != nil {
 		panic(err)
 	}
-	d.Request.Header.Set("Content-Type", "application/json")
-	d.SetPOSTData(data)
+	d.SetPOSTData(data, "application/json")
 }
 
 func (d *Document) IsMultipartRequest() bool {
@@ -224,9 +224,12 @@ func (d *Document) SetFile(name, filePath string) error {
 	return d.SetMultipartContent(name, file, "application/octet-stream")
 }
 
-func (d *Document) SetBasicAuthorization(username, password string) {
-	auth := base64.RawStdEncoding.EncodeToString([]byte(username + ":" + password))
-	d.Request.Header.Add("Authorization", "Basic "+auth)
+func (d *Document) SetUserAgent(ua string) {
+	d.Request.Header.Set("User-Agent", ua)
+}
+
+func (d *Document) SetBasicAuth(username, password string) {
+	d.Request.SetBasicAuth(username, password)
 }
 
 func (d *Document) Submit() error {
