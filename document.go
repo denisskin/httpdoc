@@ -173,6 +173,22 @@ func (d *Document) SetJSON(v interface{}) {
 	d.SetPOSTData(data, "application/json")
 }
 
+func (d *Document) SetCookies(cookies map[string]string) {
+	d.Request.Header.Set("Cookie", "")
+	d.AddCookies(cookies)
+}
+
+func (d *Document) AddCookies(cookies map[string]string) {
+	var c = &http.Cookie{}
+	for c.Name, c.Value = range cookies {
+		d.Request.AddCookie(c)
+	}
+}
+
+func (d *Document) AddCookie(name, value string) {
+	d.Request.AddCookie(&http.Cookie{Name: name, Value: value})
+}
+
 func (d *Document) IsMultipartRequest() bool {
 	return d.multipartWriter != nil
 }
