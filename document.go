@@ -288,6 +288,21 @@ func (d *Document) Load() error {
 	} else {
 		d.Body = d.rawBody
 	}
+
+	// handle middleware
+	for _, fn := range middlewares {
+		err := func(fn middlewareFunc) (err error) {
+			defer func() {
+				if r, _ := recover().(error); r != nil {
+					err = r
+				}
+			}()
+			return fn(d)
+		}(fn)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
