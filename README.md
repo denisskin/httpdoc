@@ -5,15 +5,22 @@ golang advanced http-client
 
 #### Simple request
 ``` golang
+    title := httpdoc.NewDocument("https://golang.org/").Title()
+    
+    println(title) // -> "The Go Programming Language"
+```
+
+#### Form request
+``` golang
     form := httpdoc.NewDocument("https://golang.org/").Forms().Eq(0)
 
     doc := form.Doc()
     doc.SetParam("q", "gopher")
     doc.Submit()
-    doc.Title() // -> "gopher - The Go Programming Language"
+    println(doc.Title()) // -> "gopher - The Go Programming Language"
 ```
 
-#### Import list of friends from my facebook profile
+#### Import list of friends from facebook profile
 ``` golang
     doc := httpdoc.NewDocument("https://facebook.com/")
     
@@ -46,5 +53,5 @@ golang advanced http-client
     doc = doc.Frames().Eq(0).Doc()  // get document from first iframe
     doc = doc.Links().Eq(0).Doc()   // get document from first link (A-tag)
     
-    assert.Equal(t, doc.Title(), "Язык программирования Go")
+    print(doc.Title()) // -> "Язык программирования Go"
 ```

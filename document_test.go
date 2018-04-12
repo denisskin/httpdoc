@@ -6,6 +6,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestHelloWorld(t *testing.T) {
+
+	title := NewDocument("https://golang.org/").Title()
+
+	assert.Equal(t, "The Go Programming Language", title)
+}
+
 func TestSimpleRequest(t *testing.T) {
 	doc := NewDocument("https://golang.org/")
 	err := doc.Load()
@@ -52,5 +59,5 @@ func TestGoogleTranslateWebSite(t *testing.T) {
 		Frames().Eq(0).Doc(). // get document from first frame
 		Links().Eq(0).Doc()   // get document from first link (A-tag)
 
-	assert.Equal(t, doc.Title(), "Язык программирования Go")
+	assert.Equal(t, "Язык программирования Go", doc.Title())
 }
