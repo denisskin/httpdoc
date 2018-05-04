@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"path"
+
 	"golang.org/x/text/encoding/htmlindex"
 	"golang.org/x/text/transform"
 )
@@ -209,11 +211,15 @@ func escapeQuotes(s string) string {
 	return quoteEscaper.Replace(s)
 }
 
-func (d *Document) SetMultipartContent(name string, data io.Reader, contentType string) error {
+func (d *Document) SetMultipartContent(paramName string, data io.Reader, contentType string) error {
 	d.setMultipartRequest()
 
 	h := make(textproto.MIMEHeader)
-	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, escapeQuotes(name), escapeQuotes(name)))
+	fileName := paramName
+	if ext, _ := mime.ExtensionsByType(contentType); len(ext) > 0 {
+		fileName += ext[0]
+	}
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, escapeQuotes(paramName), escapeQuotes(fileName)))
 	if contentType != "" {
 		h.Set("Content-Type", contentType)
 	}
@@ -236,8 +242,7 @@ func (d *Document) SetFile(name, filePath string) error {
 		return err
 	}
 	defer file.Close()
-	// TODO: detect contentType by file extension
-	return d.SetMultipartContent(name, file, "application/octet-stream")
+	return d.SetMultipartContent(name, file, mime.TypeByExtension(path.Ext(filePath)))
 }
 
 func (d *Document) SetUserAgent(ua string) {
