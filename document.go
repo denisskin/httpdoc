@@ -15,12 +15,11 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-
-	"path"
 
 	"golang.org/x/text/encoding/htmlindex"
 	"golang.org/x/text/transform"
