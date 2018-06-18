@@ -32,7 +32,12 @@ type Document struct {
 	rawBody  []byte
 	Body     []byte
 
-	multipartWriter *multipart.Writer
+	multiParts []*multipartPart
+}
+
+type multipartPart struct {
+	header textproto.MIMEHeader
+	io.Reader
 }
 
 var DefaultHeader = http.Header{
@@ -40,7 +45,7 @@ var DefaultHeader = http.Header{
 	"Accept-Encoding": {"gzip, deflate"},
 	"Cache-Control":   {"max-age=0"},
 	"Connection":      {"keep-alive"},
-	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36"},
+	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"},
 }
 
 var DefaultClient *http.Client
@@ -191,17 +196,7 @@ func (d *Document) AddCookie(name, value string) {
 }
 
 func (d *Document) IsMultipartRequest() bool {
-	return d.multipartWriter != nil
-}
-
-func (d *Document) setMultipartRequest() {
-	if d.multipartWriter == nil {
-		buf := bytes.NewBuffer(nil)
-		d.Request.Method = "POST"
-		d.multipartWriter = multipart.NewWriter(buf)
-		d.Request.Header.Set("Content-Type", d.multipartWriter.FormDataContentType())
-		d.Request.Body = ioutil.NopCloser(buf)
-	}
+	return d.multiParts != nil
 }
 
 var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
@@ -210,8 +205,7 @@ func escapeQuotes(s string) string {
 	return quoteEscaper.Replace(s)
 }
 
-func (d *Document) SetMultipartContent(paramName string, data io.Reader, contentType string) error {
-	d.setMultipartRequest()
+func (d *Document) SetMultipartContent(paramName string, r io.Reader, contentType string) {
 
 	h := make(textproto.MIMEHeader)
 	fileName := paramName
@@ -222,16 +216,13 @@ func (d *Document) SetMultipartContent(paramName string, data io.Reader, content
 	if contentType != "" {
 		h.Set("Content-Type", contentType)
 	}
-	if w, err := d.multipartWriter.CreatePart(h); err != nil {
-		return err
-	} else if _, err := io.Copy(w, data); err != nil {
-		return err
-	}
-	return nil
+
+	d.Request.Method = "POST"
+	d.multiParts = append(d.multiParts, &multipartPart{h, r})
 }
 
 func (d *Document) SetMultipartParams(vals url.Values) {
-	d.setMultipartRequest()
+	d.multiParts = []*multipartPart{} // set no nil
 	d.SetPOSTParams(vals)
 }
 
@@ -240,8 +231,8 @@ func (d *Document) SetFile(name, filePath string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-	return d.SetMultipartContent(name, file, mime.TypeByExtension(path.Ext(filePath)))
+	d.SetMultipartContent(name, file, mime.TypeByExtension(path.Ext(filePath)))
+	return nil
 }
 
 func (d *Document) SetUserAgent(ua string) {
@@ -265,13 +256,39 @@ func (d *Document) Load() error {
 	if d.Loaded() {
 		return nil
 	}
-	if d.multipartWriter != nil {
-		for name, values := range d.Request.PostForm {
-			for _, val := range values {
-				d.multipartWriter.WriteField(name, val)
+	if d.IsMultipartRequest() {
+
+		pr, pw := io.Pipe()
+		mpWriter := multipart.NewWriter(pw)
+
+		d.Request.Header.Set("Content-Type", mpWriter.FormDataContentType())
+		d.Request.Body = pr
+
+		go func() { // async write milti-parts to request.Body
+			defer pw.Close()
+			defer mpWriter.Close()
+
+			for name, values := range d.Request.PostForm {
+				for _, val := range values {
+					if err := mpWriter.WriteField(name, val); err != nil {
+						pw.CloseWithError(err)
+						return
+					}
+				}
 			}
-		}
-		d.multipartWriter.Close()
+			for _, mp := range d.multiParts {
+				if w, err := mpWriter.CreatePart(mp.header); err != nil {
+					pw.CloseWithError(err)
+					return
+				} else if _, err := io.Copy(w, mp.Reader); err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+				if cl, ok := mp.Reader.(io.Closer); ok {
+					cl.Close()
+				}
+			}
+		}()
 
 	} else if len(d.Request.PostForm) > 0 {
 		// set request body
