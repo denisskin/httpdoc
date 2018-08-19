@@ -45,7 +45,7 @@ var DefaultHeader = http.Header{
 	"Accept-Encoding": {"gzip, deflate"},
 	"Cache-Control":   {"max-age=0"},
 	"Connection":      {"keep-alive"},
-	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"},
+	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36"},
 }
 
 var DefaultClient *http.Client
@@ -522,6 +522,14 @@ func (d *Document) Scripts() HTMLElements {
 // MetaTags gets collections of html-tags <meta>
 func (d *Document) MetaTags() HTMLElements {
 	return d.GetElementsByTagName("meta")
+}
+
+// MetaDescription gets html-document description from <meta name="description">
+func (d *Document) MetaDescription() string {
+	if e := d.MetaTags().FilterByAttrValue("name", "description").First(); e != nil {
+		return e.Attributes["content"]
+	}
+	return ""
 }
 
 // MetaIcon gets image-url from meta-info for html-document
