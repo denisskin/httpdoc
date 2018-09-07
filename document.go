@@ -63,6 +63,14 @@ func NewDocument(url string) *Document {
 	return newDocument(url, DefaultClient)
 }
 
+func LoadJSON(url string, v interface{}) error {
+	doc := NewDocument(url)
+	if err := doc.Load(); err != nil {
+		return err
+	}
+	return doc.GetJSON(v)
+}
+
 func (d *Document) NewDoc(relURL string) *Document {
 	u, err := url.Parse(relURL)
 	panicOnErr(err)
