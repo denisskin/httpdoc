@@ -322,8 +322,8 @@ func (d *Document) Load() error {
 	for _, fn := range middlewares {
 		err := func(fn middlewareFunc) (err error) {
 			defer func() {
-				if r, _ := recover().(error); r != nil {
-					err = r
+				if r := recover(); r != nil {
+					err = fmt.Errorf("httpdoc.Document.Load-PANIC: %v", r)
 				}
 			}()
 			return fn(d)
