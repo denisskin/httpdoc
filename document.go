@@ -11,7 +11,6 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
-	"net/http/cookiejar"
 	"net/textproto"
 	"net/url"
 	"os"
@@ -72,12 +71,17 @@ func LoadJSON(url string, v interface{}) error {
 }
 
 func (d *Document) NewDoc(relURL string) *Document {
+	if err := d.Load(); err != nil {
+		panic(err)
+	}
+	org := d.Request.URL
 	u, err := url.Parse(relURL)
 	panicOnErr(err)
-	u = d.Request.URL.ResolveReference(u)
+	u = org.ResolveReference(u)
 
 	doc := newDocument(u.String(), d.Client)
-	doc.Request.Header.Set("Referer", d.URL().String())
+	doc.Request.Header.Set("Origin", org.Scheme+"://"+org.Host)
+	doc.Request.Header.Set("Referer", org.String())
 	return doc
 }
 
@@ -149,24 +153,27 @@ func (d *Document) SetParam(name, val string) *Document {
 	return d
 }
 
-func (d *Document) SetQueryParam(name, val string) {
+func (d *Document) SetQueryParam(name, val string) *Document {
 	q := d.Request.URL.Query()
 	q.Set(name, val)
 	d.Request.URL.RawQuery = q.Encode()
+	return d
 }
 
-func (d *Document) SetGETParam(name, val string) {
-	d.SetQueryParam(name, val)
+func (d *Document) SetGETParam(name, val string) *Document {
+	return d.SetQueryParam(name, val)
 }
 
-func (d *Document) SetPOSTParam(name, val string) {
+func (d *Document) SetPOSTParam(name, val string) *Document {
 	d.Request.Method = "POST"
 	d.Request.PostForm.Set(name, val)
+	return d
 }
 
-func (d *Document) SetPOSTParams(vals url.Values) {
+func (d *Document) SetPOSTParams(vals url.Values) *Document {
 	d.Request.Method = "POST"
 	d.Request.PostForm = vals
+	return d
 }
 
 func (d *Document) SetPOSTData(data []byte, contentType string) {
@@ -229,9 +236,9 @@ func (d *Document) SetMultipartContent(paramName string, r io.Reader, contentTyp
 	d.multiParts = append(d.multiParts, &multipartPart{h, r})
 }
 
-func (d *Document) SetMultipartParams(vals url.Values) {
+func (d *Document) SetMultipartParams(vals url.Values) *Document {
 	d.multiParts = []*multipartPart{} // set no nil
-	d.SetPOSTParams(vals)
+	return d.SetPOSTParams(vals)
 }
 
 func (d *Document) SetFile(name, filePath string) error {
