@@ -42,20 +42,10 @@ type multipartPart struct {
 var DefaultHeader = http.Header{
 	"Accept":          {"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"},
 	"Accept-Encoding": {"gzip, deflate"},
+	"Accept-Language": {"en-US,en;q=0.9"},
 	"Cache-Control":   {"max-age=0"},
 	"Connection":      {"keep-alive"},
-	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36"},
-}
-
-var DefaultClient *http.Client
-
-func init() {
-	jar, err := cookiejar.New(nil)
-	panicOnErr(err)
-	DefaultClient = &http.Client{
-		Jar:     jar,
-		Timeout: 60 * time.Second,
-	}
+	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36"},
 }
 
 func NewDocument(url string) *Document {
@@ -260,6 +250,16 @@ func (d *Document) SetBasicAuth(username, password string) {
 
 func (d *Document) Submit() error {
 	return d.Load()
+}
+
+func (d *Document) AddHeader(name, value string) *Document {
+	d.Request.Header.Add(name, value)
+	return d
+}
+
+func (d *Document) SetHeader(name, value string) *Document {
+	d.Request.Header.Set(name, value)
+	return d
 }
 
 //---------- response method --------------
