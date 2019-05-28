@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dsnet/compress/brotli"
 	"golang.org/x/text/encoding/htmlindex"
 	"golang.org/x/text/transform"
 )
@@ -41,11 +42,11 @@ type multipartPart struct {
 
 var DefaultHeader = http.Header{
 	"Accept":          {"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"},
-	"Accept-Encoding": {"gzip, deflate"},
+	"Accept-Encoding": {"gzip, deflate, br"},
 	"Accept-Language": {"en-US,en;q=0.9"},
 	"Cache-Control":   {"max-age=0"},
 	"Connection":      {"keep-alive"},
-	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36"},
+	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36"},
 }
 
 func NewDocument(url string) *Document {
@@ -355,6 +356,10 @@ func (d *Document) doRequest() (err error) {
 	// todo: "compress"
 	// todo: "sdch"
 
+	case "br":
+		reader, err = brotli.NewReader(d.Response.Body, nil)
+		defer reader.Close()
+
 	case "gzip":
 		reader, err = gzip.NewReader(d.Response.Body)
 		defer reader.Close()
@@ -449,6 +454,11 @@ func (d *Document) ContentStr() string {
 func (d *Document) Content() []byte {
 	panicOnErr(d.Load())
 	return d.Body
+}
+
+func (d *Document) ContentBuffer() *bytes.Buffer {
+	panicOnErr(d.Load())
+	return bytes.NewBuffer(d.Body)
 }
 
 func normRe(regExp interface{}) *regexp.Regexp {
