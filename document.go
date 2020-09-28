@@ -581,6 +581,13 @@ func (d *Document) MetaDescription() string {
 	return ""
 }
 
+func (d *Document) MetaCSRFToken() string {
+	if e := d.MetaTags().FilterByAttrValue("name", "csrf-token").First(); e != nil {
+		return e.Attributes["content"]
+	}
+	return ""
+}
+
 // MetaIcon gets image-url from meta-info for html-document
 func (d *Document) MetaIcon() string {
 	linkTags := d.GetElementsByTagName("link").FilterByAttr("href")
