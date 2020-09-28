@@ -37,7 +37,7 @@ type Document struct {
 
 type multipartPart struct {
 	header textproto.MIMEHeader
-	io.Reader
+	io.ReadCloser
 }
 
 var DefaultHeader = http.Header{
@@ -46,7 +46,7 @@ var DefaultHeader = http.Header{
 	"Accept-Language": {"en-US,en;q=0.9"},
 	"Cache-Control":   {"max-age=0"},
 	"Connection":      {"keep-alive"},
-	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36"},
+	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36"},
 }
 
 func NewDocument(url string) *Document {
@@ -71,8 +71,8 @@ func (d *Document) NewDoc(relURL string) *Document {
 	u = org.ResolveReference(u)
 
 	doc := newDocument(u.String(), d.Client)
-	doc.Request.Header.Set("Origin", org.Scheme+"://"+org.Host)
-	doc.Request.Header.Set("Referer", org.String())
+	doc.SetHeader("Origin", org.Scheme+"://"+org.Host)
+	doc.SetHeader("Referer", org.String())
 	return doc
 }
 
@@ -80,7 +80,12 @@ func newDocument(urlStr string, client *http.Client) *Document {
 	req, err := http.NewRequest("GET", urlStr, nil)
 	panicOnErr(err)
 	req.PostForm = url.Values{}
-
+	if auth := req.URL.User; auth != nil {
+		if username := auth.Username(); username != "" {
+			password, _ := auth.Password()
+			req.SetBasicAuth(username, password)
+		}
+	}
 	for name, values := range DefaultHeader {
 		for _, value := range values {
 			req.Header.Add(name, value)
@@ -107,6 +112,11 @@ func (d *Document) Method() string {
 	return d.Request.Method
 }
 
+func (d *Document) SetMethod(method string) *Document {
+	d.Request.Method = method
+	return d
+}
+
 func (d *Document) URL() *url.URL {
 	if resp := d.Response; resp != nil {
 		return resp.Request.URL
@@ -127,12 +137,13 @@ func (d *Document) Param(name string) string {
 	return val
 }
 
-func (d *Document) SetParams(vals url.Values) {
+func (d *Document) SetParams(vals url.Values) *Document {
 	if d.Request.Method == "POST" {
 		d.Request.PostForm = vals
 	} else {
 		d.Request.URL.RawQuery = vals.Encode()
 	}
+	return d
 }
 
 func (d *Document) SetParam(name, val string) *Document {
@@ -167,7 +178,7 @@ func (d *Document) SetPOSTParams(vals url.Values) *Document {
 	return d
 }
 
-func (d *Document) SetPOSTData(data []byte, contentType string) {
+func (d *Document) SetPOSTData(data []byte, contentType string) *Document {
 	if contentType == "" {
 		contentType = "application/x-www-form-urlencoded"
 	}
@@ -175,14 +186,16 @@ func (d *Document) SetPOSTData(data []byte, contentType string) {
 	d.Request.Header.Set("Content-Type", contentType)
 	d.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 	d.Request.ContentLength = int64(len(data))
+	return d
 }
 
-func (d *Document) SetJSON(v interface{}) {
+func (d *Document) SetJSON(v interface{}) *Document {
 	data, err := json.Marshal(v)
 	if err != nil {
 		panic(err)
 	}
 	d.SetPOSTData(data, "application/json")
+	return d
 }
 
 func (d *Document) SetCookies(cookies map[string]string) {
@@ -191,14 +204,22 @@ func (d *Document) SetCookies(cookies map[string]string) {
 }
 
 func (d *Document) AddCookies(cookies map[string]string) {
-	var c = &http.Cookie{}
-	for c.Name, c.Value = range cookies {
-		d.Request.AddCookie(c)
+	cc := make([]*http.Cookie, 0, len(cookies))
+	for name, val := range cookies {
+		cc = append(cc, &http.Cookie{Name: name, Value: val})
 	}
+	d.addCookies(cc...)
 }
 
 func (d *Document) AddCookie(name, value string) {
-	d.Request.AddCookie(&http.Cookie{Name: name, Value: value})
+	d.addCookies(&http.Cookie{Name: name, Value: value})
+}
+
+func (d *Document) addCookies(cookies ...*http.Cookie) {
+	for _, c := range cookies {
+		d.Request.AddCookie(c)
+	}
+	d.Client.Jar.SetCookies(d.URL(), cookies)
 }
 
 func (d *Document) IsMultipartRequest() bool {
@@ -211,14 +232,17 @@ func escapeQuotes(s string) string {
 	return quoteEscaper.Replace(s)
 }
 
-func (d *Document) SetMultipartContent(paramName string, r io.Reader, contentType string) {
+func (d *Document) SetMultipartContent(paramName string, r io.ReadCloser, contentType string) {
 
 	h := make(textproto.MIMEHeader)
 	fileName := paramName
 	if ext, _ := mime.ExtensionsByType(contentType); len(ext) > 0 {
 		fileName += ext[0]
 	}
-	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, escapeQuotes(paramName), escapeQuotes(fileName)))
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
+		escapeQuotes(paramName),
+		escapeQuotes(fileName),
+	))
 	if contentType != "" {
 		h.Set("Content-Type", contentType)
 	}
@@ -296,13 +320,11 @@ func (d *Document) Load() error {
 				if w, err := mpWriter.CreatePart(mp.header); err != nil {
 					pw.CloseWithError(err)
 					return
-				} else if _, err := io.Copy(w, mp.Reader); err != nil {
+				} else if _, err := io.Copy(w, mp); err != nil {
 					pw.CloseWithError(err)
 					return
 				}
-				if cl, ok := mp.Reader.(io.Closer); ok {
-					cl.Close()
-				}
+				mp.Close()
 			}
 		}()
 
@@ -340,6 +362,9 @@ func (d *Document) Load() error {
 			return err
 		}
 	}
+	if status := d.Response.StatusCode; status >= 400 {
+		return fmt.Errorf("http-status-code %d", status)
+	}
 	return nil
 }
 
@@ -352,7 +377,6 @@ func (d *Document) doRequest() (err error) {
 	// Check that the server actually sent compressed data
 	var reader io.ReadCloser
 	switch d.Response.Header.Get("Content-Encoding") {
-	// todo: "br" https://godoc.org/github.com/dsnet/compress/brotli
 	// todo: "compress"
 	// todo: "sdch"
 
