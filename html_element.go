@@ -18,6 +18,8 @@ type HTMLElement struct {
 
 var (
 	reTag      = regexp.MustCompile(`</?[a-zA-Z0-9\-]+[^>]*>`)
+	reSpec     = regexp.MustCompile(`(?si:<!--.*?-->|<[?!].*?>|<style.*?</style>|<script.*?</script>)`)
+	reSpace    = regexp.MustCompile(`\s+`)
 	reBr       = regexp.MustCompile(`<(?i:br|p)[^<>]*/?>`)
 	reLi       = regexp.MustCompile(`<(?i:li)[^<>]*>`)
 	reNewLine  = regexp.MustCompile(`(?s:\n+)`)
@@ -25,21 +27,39 @@ var (
 	reTagAttrs = regexp.MustCompile(`\s([a-zA-Z0-9\-]+)=('[^']*'|"[^"]*")`)
 )
 
+var isSingleTag = map[string]bool{
+	"meta":   true,
+	"link":   true,
+	"br":     true,
+	"hr":     true,
+	"input":  true,
+	"option": true,
+}
+
 func getElementsByTagName(d *Document, name string) (ee HTMLElements) {
 	// todo: use html.NewTokenizer(bytes.NewBuffer(d.Body))
 
-	name = regexp.QuoteMeta(name)
-	re, err := regexp.Compile(`(?i:<` + name + `\b([^>]*)(?s:/>|>(.*?)</` + name + `>))`)
+	name = regexp.QuoteMeta(strings.ToLower(name))
+	var reStr string
+	if isSingleTag[name] {
+		reStr = `(?i:<` + name + `\b([^>]*)/?>)`
+	} else {
+		reStr = `(?i:<` + name + `\b([^>]*)(?s:/>|>(.*?)</` + name + `>))`
+	}
+	re, err := regexp.Compile(reStr)
 	if err != nil {
 		panic(err)
 	}
 	for _, ss := range re.FindAllStringSubmatch(d.ContentStr(), -1) {
-		ee = append(ee, &HTMLElement{
+		e := &HTMLElement{
 			Document:   d,
 			TagName:    name,
 			Attributes: parseTagAttrs(ss[1]),
-			InnerHTML:  strings.TrimSpace(ss[2]),
-		})
+		}
+		if len(ss) > 2 {
+			e.InnerHTML = strings.TrimSpace(ss[2])
+		}
+		ee = append(ee, e)
 	}
 	return
 }
@@ -54,6 +74,8 @@ func parseTagAttrs(s string) map[string]string {
 }
 
 func HtmlToText(s string) string {
+	s = reSpec.ReplaceAllString(s, "")
+	s = reSpace.ReplaceAllString(s, " ")
 	s = reBr.ReplaceAllString(s, "\n")
 	s = reLi.ReplaceAllString(s, "\n- ")
 	s = reTag.ReplaceAllString(s, "")
@@ -73,6 +95,9 @@ func (e *HTMLElement) String() string {
 	s := `<` + e.TagName
 	for k, v := range e.Attributes {
 		s += fmt.Sprintf(` %s="%s"`, k, html.EscapeString(v))
+	}
+	if isSingleTag[e.TagName] {
+		return s + ` />`
 	}
 	return s + `>` + e.InnerHTML + `</` + e.TagName + `>`
 }

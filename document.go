@@ -46,7 +46,7 @@ var DefaultHeader = http.Header{
 	"Accept-Language": {"en-US,en;q=0.9"},
 	"Cache-Control":   {"max-age=0"},
 	"Connection":      {"keep-alive"},
-	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36"},
+	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.76 Safari/537.36"},
 }
 
 func NewDocument(url string) *Document {
@@ -73,6 +73,15 @@ func (d *Document) NewDoc(relURL string) *Document {
 	doc := newDocument(u.String(), d.Client)
 	doc.SetHeader("Origin", org.Scheme+"://"+org.Host)
 	doc.SetHeader("Referer", org.String())
+	return doc
+}
+
+func (d *Document) NewAjax(relURL string) *Document {
+	doc := d.NewDoc(relURL)
+	if csrf := d.MetaCSRFToken(); csrf != "" {
+		doc.SetHeader("x-csrf-token-auth", csrf)
+	}
+	doc.SetHeader("X-Requested-With", "XMLHttpRequest")
 	return doc
 }
 
@@ -103,7 +112,7 @@ func panicOnErr(err error) {
 	}
 }
 
-//---------- request method --------------
+// ---------- request method --------------
 func (d *Document) String() string {
 	return fmt.Sprintf("httpdoc.Document(url=%s loaded=%v)", d.URL(), d.Loaded())
 }
@@ -287,7 +296,7 @@ func (d *Document) SetHeader(name, value string) *Document {
 	return d
 }
 
-//---------- response method --------------
+// ---------- response method --------------
 func (d *Document) Loaded() bool {
 	return d.Response != nil
 }
@@ -531,7 +540,7 @@ func (d *Document) GetJSON(v interface{}) error {
 	return json.Unmarshal(d.Content(), v)
 }
 
-//--------- html-document methods ---------------
+// --------- html-document methods ---------------
 func (d *Document) Title() string {
 	if ee := d.GetElementsByTagName("title"); len(ee) > 0 {
 		return ee[0].InnerText()
