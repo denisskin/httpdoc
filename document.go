@@ -46,14 +46,15 @@ var DefaultHeader = http.Header{
 	"Accept-Language": {"en-US,en;q=0.9"},
 	"Cache-Control":   {"max-age=0"},
 	"Connection":      {"keep-alive"},
-	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.76 Safari/537.36"},
+	"Pragma":          {"no-cache"},
+	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"},
 }
 
 func NewDocument(url string) *Document {
 	return newDocument(url, DefaultClient)
 }
 
-func LoadJSON(url string, v interface{}) error {
+func LoadJSON(url string, v any) error {
 	doc := NewDocument(url)
 	if err := doc.Load(); err != nil {
 		return err
@@ -198,7 +199,7 @@ func (d *Document) SetPOSTData(data []byte, contentType string) *Document {
 	return d
 }
 
-func (d *Document) SetJSON(v interface{}) *Document {
+func (d *Document) SetJSON(v any) *Document {
 	data, err := json.Marshal(v)
 	if err != nil {
 		panic(err)
@@ -494,7 +495,7 @@ func (d *Document) ContentBuffer() *bytes.Buffer {
 	return bytes.NewBuffer(d.Body)
 }
 
-func normRe(regExp interface{}) *regexp.Regexp {
+func normRe(regExp any) *regexp.Regexp {
 	switch v := regExp.(type) {
 	case *regexp.Regexp:
 		return v
@@ -507,33 +508,33 @@ func normRe(regExp interface{}) *regexp.Regexp {
 	}
 }
 
-func (d *Document) Match(regExp interface{}) []string {
+func (d *Document) Match(regExp any) []string {
 	return normRe(regExp).FindStringSubmatch(d.ContentStr())
 }
 
-func (d *Document) Submatch(regExp interface{}, submatchNum int) string {
+func (d *Document) Submatch(regExp any, submatchNum int) string {
 	if submatches := d.Match(regExp); len(submatches) > 0 {
 		return submatches[submatchNum]
 	}
 	return ""
 }
 
-func (d *Document) MatchAll(regExp interface{}) []string {
+func (d *Document) MatchAll(regExp any) []string {
 	return normRe(regExp).FindAllString(d.ContentStr(), -1)
 }
 
-func (d *Document) SubmatchAll(regExp interface{}) [][]string {
+func (d *Document) SubmatchAll(regExp any) [][]string {
 	return normRe(regExp).FindAllStringSubmatch(d.ContentStr(), -1)
 }
 
-func (d *Document) AllSubmatches(regExp interface{}, submatchNum int) (submatches []string) {
+func (d *Document) AllSubmatches(regExp any, submatchNum int) (submatches []string) {
 	for _, ss := range d.SubmatchAll(regExp) {
 		submatches = append(submatches, ss[submatchNum])
 	}
 	return
 }
 
-func (d *Document) GetJSON(v interface{}) error {
+func (d *Document) GetJSON(v any) error {
 	if err := d.Load(); err != nil {
 		return err
 	}
