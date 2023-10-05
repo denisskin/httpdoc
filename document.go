@@ -2,6 +2,7 @@ package httpdoc
 
 import (
 	"bytes"
+	"common/js"
 	"compress/flate"
 	"compress/gzip"
 	"encoding/json"
@@ -539,6 +540,11 @@ func (d *Document) GetJSON(v any) error {
 		return err
 	}
 	return json.Unmarshal(d.Content(), v)
+}
+
+func (d *Document) GetJSObject() (res js.Object, err error) {
+	err = d.GetJSON(&res)
+	return
 }
 
 // --------- html-document methods ---------------
