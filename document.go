@@ -2,11 +2,14 @@ package httpdoc
 
 import (
 	"bytes"
-	"common/js"
 	"compress/flate"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"github.com/dsnet/compress/brotli"
+	"github.com/goldic/js"
+	"golang.org/x/text/encoding/htmlindex"
+	"golang.org/x/text/transform"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -20,10 +23,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/dsnet/compress/brotli"
-	"golang.org/x/text/encoding/htmlindex"
-	"golang.org/x/text/transform"
 )
 
 type Document struct {
@@ -48,7 +47,7 @@ var DefaultHeader = http.Header{
 	"Cache-Control":   {"max-age=0"},
 	"Connection":      {"keep-alive"},
 	"Pragma":          {"no-cache"},
-	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"},
+	"User-Agent":      {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"},
 }
 
 func NewDocument(url string) *Document {
@@ -290,6 +289,13 @@ func (d *Document) Submit() error {
 
 func (d *Document) AddHeader(name, value string) *Document {
 	d.Request.Header.Add(name, value)
+	return d
+}
+
+func (d *Document) SetHeaders(headers js.Object) *Document {
+	for name := range headers {
+		d.SetHeader(name, headers.GetStr(name))
+	}
 	return d
 }
 
